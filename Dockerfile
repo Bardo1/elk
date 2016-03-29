@@ -1,19 +1,7 @@
-# Dockerfile for ELK stack
 # Elasticsearch 2.2.1, Logstash 2.2.2, Kibana 4.4.2
 
-# Build with:
-# docker build -t <repo-user>/elk .
-
-# Run with:
-# docker run -p 5601:5601 -p 9200:9200 -p 5044:5044 -p 5000:5000 -it --name elk <repo-user>/elk
-
 FROM phusion/baseimage
-MAINTAINER Sebastien Pujadas http://pujadas.net
-ENV REFRESHED_AT 2016-03-04
-
-###############################################################################
-#                                INSTALLATION
-###############################################################################
+MAINTAINER Paradigma BOL  carrefour-bol@paradigmadigital.com
 
 ### install Elasticsearch
 
@@ -28,7 +16,6 @@ RUN apt-get update -qq \
 		elasticsearch=2.2.1 \
 		openjdk-7-jdk \
  && apt-get clean
-
 
 ### install Logstash
 
@@ -48,7 +35,6 @@ ADD ./logstash-init /etc/init.d/logstash
 RUN sed -i -e 's#^LS_HOME=$#LS_HOME='$LOGSTASH_HOME'#' /etc/init.d/logstash \
  && chmod +x /etc/init.d/logstash
 
-
 ### install Kibana
 
 ENV KIBANA_HOME /opt/kibana
@@ -67,45 +53,28 @@ ADD ./kibana-init /etc/init.d/kibana
 RUN sed -i -e 's#^KIBANA_HOME=$#KIBANA_HOME='$KIBANA_HOME'#' /etc/init.d/kibana \
  && chmod +x /etc/init.d/kibana
 
-
-###############################################################################
-#                               CONFIGURATION
-###############################################################################
-
 ### configure Elasticsearch
 
 ADD ./elasticsearch.yml /etc/elasticsearch/elasticsearch.yml
-
 
 ### configure Logstash
 
 # certs/keys for Beats and Lumberjack input
 RUN mkdir -p /etc/pki/tls/certs && mkdir /etc/pki/tls/private
-ADD ./logstash-forwarder.crt /etc/pki/tls/certs/logstash-forwarder.crt
-ADD ./logstash-forwarder.key /etc/pki/tls/private/logstash-forwarder.key
 ADD ./logstash-beats.crt /etc/pki/tls/certs/logstash-beats.crt
 ADD ./logstash-beats.key /etc/pki/tls/private/logstash-beats.key
 
 # filters
-ADD ./01-lumberjack-input.conf /etc/logstash/conf.d/01-lumberjack-input.conf
 ADD ./02-beats-input.conf /etc/logstash/conf.d/02-beats-input.conf
 ADD ./10-syslog.conf /etc/logstash/conf.d/10-syslog.conf
-ADD ./11-nginx.conf /etc/logstash/conf.d/11-nginx.conf
 ADD ./30-output.conf /etc/logstash/conf.d/30-output.conf
 
-# patterns
-ADD ./nginx.pattern ${LOGSTASH_HOME}/patterns/nginx
-RUN chown -R logstash:logstash ${LOGSTASH_HOME}/patterns
-
-
-###############################################################################
-#                                   START
-###############################################################################
+# Start
 
 ADD ./start.sh /usr/local/bin/start.sh
 RUN chmod +x /usr/local/bin/start.sh
 
-EXPOSE 5601 9200 9300 5000 5044
+EXPOSE 5601 9200 9300 5044
 VOLUME /var/lib/elasticsearch
 
 CMD [ "/usr/local/bin/start.sh" ]
