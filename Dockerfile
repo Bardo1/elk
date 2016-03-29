@@ -3,7 +3,12 @@
 FROM phusion/baseimage
 MAINTAINER Paradigma BOL  carrefour-bol@paradigmadigital.com
 
-### install Elasticsearch
+ENV LOGSTASH_HOME /opt/logstash
+ENV LOGSTASH_PACKAGE logstash-2.2.2.tar.gz
+ENV KIBANA_HOME /opt/kibana
+ENV KIBANA_PACKAGE kibana-4.4.2-linux-x64.tar.gz
+
+### Install Elasticsearch ###
 
 RUN apt-get update -qq \
  && apt-get install -qqy curl
@@ -17,10 +22,7 @@ RUN apt-get update -qq \
 		openjdk-7-jdk \
  && apt-get clean
 
-### install Logstash
-
-ENV LOGSTASH_HOME /opt/logstash
-ENV LOGSTASH_PACKAGE logstash-2.2.2.tar.gz
+### Install Logstash ###
 
 RUN mkdir ${LOGSTASH_HOME} \
  && curl -O https://download.elasticsearch.org/logstash/logstash/${LOGSTASH_PACKAGE} \
@@ -31,14 +33,11 @@ RUN mkdir ${LOGSTASH_HOME} \
  && mkdir -p /var/log/logstash /etc/logstash/conf.d \
  && chown -R logstash:logstash ${LOGSTASH_HOME} /var/log/logstash
 
-ADD ./logstash-init /etc/init.d/logstash
+COPY scripts/logstash-init /etc/init.d/logstash
 RUN sed -i -e 's#^LS_HOME=$#LS_HOME='$LOGSTASH_HOME'#' /etc/init.d/logstash \
  && chmod +x /etc/init.d/logstash
 
-### install Kibana
-
-ENV KIBANA_HOME /opt/kibana
-ENV KIBANA_PACKAGE kibana-4.4.2-linux-x64.tar.gz
+### Install Kibana ###
 
 RUN mkdir ${KIBANA_HOME} \
  && curl -O https://download.elasticsearch.org/kibana/kibana/${KIBANA_PACKAGE} \
@@ -49,32 +48,41 @@ RUN mkdir ${KIBANA_HOME} \
  && mkdir -p /var/log/kibana \
  && chown -R kibana:kibana ${KIBANA_HOME} /var/log/kibana
 
-ADD ./kibana-init /etc/init.d/kibana
+COPY scripts/kibana-init /etc/init.d/kibana
 RUN sed -i -e 's#^KIBANA_HOME=$#KIBANA_HOME='$KIBANA_HOME'#' /etc/init.d/kibana \
  && chmod +x /etc/init.d/kibana
 
-### configure Elasticsearch
+### Configure Elasticsearch ###
 
-ADD ./elasticsearch.yml /etc/elasticsearch/elasticsearch.yml
+COPY conf/elasticsearch.yml /etc/elasticsearch/elasticsearch.yml
 
-### configure Logstash
+### Configure Logstash ###
 
-# certs/keys for Beats and Lumberjack input
+# Certs/keys for Beats input
 RUN mkdir -p /etc/pki/tls/certs && mkdir /etc/pki/tls/private
-ADD ./logstash-beats.crt /etc/pki/tls/certs/logstash-beats.crt
-ADD ./logstash-beats.key /etc/pki/tls/private/logstash-beats.key
+COPY certs/logstash-beats.crt /etc/pki/tls/certs/logstash-beats.crt
+COPY certs/logstash-beats.key /etc/pki/tls/private/logstash-beats.key
 
-# filters
-ADD ./02-beats-input.conf /etc/logstash/conf.d/02-beats-input.conf
-ADD ./10-syslog.conf /etc/logstash/conf.d/10-syslog.conf
-ADD ./30-output.conf /etc/logstash/conf.d/30-output.conf
+# Logstash filters
+COPY conf/02-beats-input.conf /etc/logstash/conf.d/02-beats-input.conf
+COPY conf/10-syslog.conf /etc/logstash/conf.d/10-syslog.conf
+COPY conf/30-output.conf /etc/logstash/conf.d/30-output.conf
 
-# Start
+### Start script ###
 
-ADD ./start.sh /usr/local/bin/start.sh
+COPY scripts/start.sh /usr/local/bin/start.sh
 RUN chmod +x /usr/local/bin/start.sh
 
 EXPOSE 5601 9200 9300 5044
+
 VOLUME /var/lib/elasticsearch
+
+LABEL io.k8s.description="ElasticSearch, Kibana ang Logstash with filebeat configured" \
+	  io.openshift.expose-services="5601,9200,9300,5044" \
+      io.openshift.tags="elk,elasticsearch,kibana,logstash,filebeat"
+
+ENV io.k8s.description="ElasticSearch, Kibana ang Logstash with filebeat configured" \
+	io.openshift.expose-services="5601,9200,9300,5044" \
+    io.openshift.tags="elk,elasticsearch,kibana,logstash,filebeat"
 
 CMD [ "/usr/local/bin/start.sh" ]
