@@ -1,0 +1,57 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    name: os_logstash
+  spec:
+    dockerImageRepository: 172.30.236.193:5000/develop/os_logstash
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    name: logstash
+  spec:
+    dockerImageRepository: docker.io/logstash
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    name: kibana
+  spec:
+    dockerImageRepository: docker.io/kibana
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    name: elasticsearch
+  spec:
+    dockerImageRepository: docker.io/elasticsearch
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    labels:
+      app: os_logstash
+    name: os.logstash
+  spec:
+    output:
+      to:
+        kind: ImageStreamTag
+        name: os_logstash:latest
+    source:
+      git:
+        uri: https://github.com/jarodriguezparadigma/elk
+      type: Git
+    strategy:
+      dockerStrategy:
+        from:
+          kind: ImageStreamTag
+          name: logstash:2.3.0
+      type: Docker
+    triggers:
+    - github:
+        secret: secret101
+      type: GitHub
+    - generic:
+        secret: secret101
+      type: Generic
+    - type: ConfigChange
+kind: List
+metadata: {}
